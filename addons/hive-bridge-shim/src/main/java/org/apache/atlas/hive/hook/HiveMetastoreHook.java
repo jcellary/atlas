@@ -91,6 +91,26 @@ public class HiveMetastoreHook extends MetaStoreEventListener {
     }
 
     @Override
+    public void onAddPartition(AddPartitionEvent partitionEvent) throws MetaException {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("==> HiveMetastoreHook.onCreatePartition()");
+        }
+
+        try {
+            activatePluginClassLoader();
+
+            atlasMetastoreHookImpl.onAddPartition(partitionEvent);
+        } finally {
+            deactivatePluginClassLoader();
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("<== HiveMetastoreHook.onCreatePartition()");
+        }
+
+    }
+
+    @Override
     public void onDropTable(DropTableEvent tableEvent) throws MetaException {
         if (LOG.isDebugEnabled()) {
             LOG.debug("==> HiveMetastoreHook.onDropTable()");

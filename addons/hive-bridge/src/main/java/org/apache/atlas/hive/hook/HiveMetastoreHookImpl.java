@@ -23,6 +23,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.MetaStoreEventListener;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.events.*;
 import org.apache.hadoop.hive.metastore.utils.SecurityUtils;
 import org.apache.hadoop.hive.ql.metadata.Table;
@@ -101,6 +102,21 @@ public class HiveMetastoreHookImpl extends MetaStoreEventListener {
         hook.handleEvent(context);
     }
 
+    @Override
+    public void onAddPartition (AddPartitionEvent partitionEvent)  {
+        LOG.debug(String.format("==> Started Processing event for table %s", partitionEvent.getPartitionIterator().next().getTableName()));
+        HiveOperationContext context = new HiveOperationContext(ALTERTABLE_ADDPARTS, partitionEvent);
+        hook.handleEvent(context);
+        LOG.debug(String.format("==> Finished Processing event %s", partitionEvent.getPartitionIterator().next().getValues()));
+    }
+
+    @Override
+    public void onDropPartition (DropPartitionEvent partitionEvent) {
+        HiveOperationContext context = new HiveOperationContext(ALTERTABLE_DROPPARTS, partitionEvent);
+        hook.handleEvent(context);
+    }
+
+
     public class HiveMetastoreHook extends AtlasHook {
         public HiveMetastoreHook() {
         }
@@ -152,6 +168,15 @@ public class HiveMetastoreHookImpl extends MetaStoreEventListener {
 
                         event = new AlterTableRenameCol(columnOld, columnNew, context);
                         break;
+
+                    case ALTERTABLE_ADDPARTS:
+                        event = new CreatePartition(context);
+                        LOG.debug(String.format("Processed Atlas for adding partition: %s", event.toString()));
+                        break;
+
+//                    case ALTERTABLE_DROPPARTS:
+//
+//                        break;
 
                     default:
                         if (LOG.isDebugEnabled()) {

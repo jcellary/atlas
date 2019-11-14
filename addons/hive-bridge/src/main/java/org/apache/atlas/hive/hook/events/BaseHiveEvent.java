@@ -34,11 +34,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Order;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.hadoop.hive.metastore.utils.SecurityUtils;
 import org.apache.hadoop.hive.ql.hooks.*;
 import org.apache.hadoop.hive.ql.hooks.LineageInfo.BaseColumnInfo;
@@ -64,6 +60,7 @@ public abstract class BaseHiveEvent {
 
     public static final String HIVE_TYPE_DB                        = "hive_db";
     public static final String HIVE_TYPE_TABLE                     = "hive_table";
+    public static final String HIVE_TYPE_PARTITION                 = "hive_table_partition";
     public static final String HIVE_TYPE_STORAGEDESC               = "hive_storagedesc";
     public static final String HIVE_TYPE_COLUMN                    = "hive_column";
     public static final String HIVE_TYPE_PROCESS                   = "hive_process";
@@ -73,6 +70,7 @@ public abstract class BaseHiveEvent {
     public static final String HIVE_TYPE_PROCESS_EXECUTION         = "hive_process_execution";
     public static final String HIVE_DB_DDL                         = "hive_db_ddl";
     public static final String HIVE_TABLE_DDL                      = "hive_table_ddl";
+    public static final String HIVE_PARTITION_DDL                  = "hive_table_partition_ddl";
     public static final String HDFS_TYPE_PATH                      = "hdfs_path";
     public static final String HBASE_TYPE_TABLE                    = "hbase_table";
     public static final String HBASE_TYPE_NAMESPACE                = "hbase_namespace";
@@ -163,6 +161,7 @@ public abstract class BaseHiveEvent {
     public static final String RELATIONSHIP_HIVE_PROCESS_PROCESS_EXE = "hive_process_process_executions";
     public static final String RELATIONSHIP_HIVE_DB_DDL_QUERIES = "hive_db_ddl_queries";
     public static final String RELATIONSHIP_HIVE_TABLE_DDL_QUERIES = "hive_table_ddl_queries";
+    public static final String RELATIONSHIP_HIVE_PARTITION_DDL_QUERIES = "hive_table_partition_ddl_queries";
     public static final String RELATIONSHIP_HBASE_TABLE_NAMESPACE = "hbase_table_namespace";
 
 
@@ -369,6 +368,23 @@ public abstract class BaseHiveEvent {
 
         return ret;
     }
+
+
+    protected AtlasEntity toPartitionEntity(Partition partition, AtlasEntityExtInfo entityExtInfo) throws Exception {
+        String partQualifiedName = getQualifiedName(partition);
+
+        AtlasEntity ret = context.getEntity(partQualifiedName);
+        if (ret == null) {
+
+            ret = new AtlasEntity(HIVE_TYPE_PARTITION);
+            ret.setAttribute(ATTRIBUTE_QUALIFIED_NAME, partQualifiedName);
+            ret.setAttribute(ATTRIBUTE_NAME, String.join(",",  partition.getValues() ) );
+            context.putEntity(partQualifiedName, ret);
+
+        }
+        return ret;
+    }
+
 
     protected AtlasEntity toTableEntity(AtlasObjectId dbId, Table table, AtlasEntityExtInfo entityExtInfo) throws Exception {
         String  tblQualifiedName = getQualifiedName(table);
@@ -698,8 +714,8 @@ public abstract class BaseHiveEvent {
         return createHiveDDLEntity(dbOrTable, false);
     }
 
-    protected AtlasEntity createHiveDDLEntity(AtlasEntity dbOrTable, boolean excludeEntityGuid) {
-        AtlasObjectId objId   = AtlasTypeUtil.getObjectId(dbOrTable);
+    protected AtlasEntity createHiveDDLEntity(AtlasEntity dbOrTableOrPart, boolean excludeEntityGuid) {
+        AtlasObjectId objId   = AtlasTypeUtil.getObjectId(dbOrTableOrPart);
         AtlasEntity   hiveDDL = null;
 
         if (excludeEntityGuid) {
@@ -715,6 +731,11 @@ public abstract class BaseHiveEvent {
             hiveDDL = new AtlasEntity(HIVE_TABLE_DDL);
             objIdRelatedObject.setRelationshipType(RELATIONSHIP_HIVE_TABLE_DDL_QUERIES);
             hiveDDL.setRelationshipAttribute( ATTRIBUTE_TABLE, objIdRelatedObject);
+
+        } else if (StringUtils.equals(objId.getTypeName(), HIVE_TYPE_PARTITION) ){
+            hiveDDL = new AtlasEntity(HIVE_PARTITION_DDL);
+            objIdRelatedObject.setRelationshipType(RELATIONSHIP_HIVE_PARTITION_DDL_QUERIES);
+            hiveDDL.setRelationshipAttribute( ATTRIBUTE_TABLE, objIdRelatedObject);
         }
 
         if (hiveDDL != null) {
@@ -723,7 +744,7 @@ public abstract class BaseHiveEvent {
             hiveDDL.setAttribute(ATTRIBUTE_QUERY_TEXT, getQueryString());
             hiveDDL.setAttribute(ATTRIBUTE_USER_NAME, getUserName());
             hiveDDL.setAttribute(ATTRIBUTE_NAME, getQueryString());
-            hiveDDL.setAttribute(ATTRIBUTE_QUALIFIED_NAME, dbOrTable.getAttribute(ATTRIBUTE_QUALIFIED_NAME).toString()
+            hiveDDL.setAttribute(ATTRIBUTE_QUALIFIED_NAME, dbOrTableOrPart.getAttribute(ATTRIBUTE_QUALIFIED_NAME).toString()
                                                            + QNAME_SEP_PROCESS + getQueryStartTime().toString());
         }
 
@@ -825,7 +846,7 @@ public abstract class BaseHiveEvent {
 
             case TABLE:
             case PARTITION:
-                return getQualifiedName(entity.getTable());
+                return getQualifiedName(entity.getPartition().getTPartition());
 
             case DFS_DIR:
                 return getQualifiedName(entity.getLocation());
@@ -833,6 +854,7 @@ public abstract class BaseHiveEvent {
 
         return null;
     }
+
 
     protected String getQualifiedName(Database db) {
         return context.getQualifiedName(db);
@@ -842,6 +864,9 @@ public abstract class BaseHiveEvent {
         return context.getQualifiedName(table);
     }
 
+    protected String getQualifiedName(Partition partition) {
+        return context.getQualifiedName(partition);
+    }
     protected String getQualifiedName(Table table, StorageDescriptor sd) {
         return getQualifiedName(table) + "_storage";
     }
@@ -1187,5 +1212,9 @@ public abstract class BaseHiveEvent {
 
     public static Table toTable(org.apache.hadoop.hive.metastore.api.Table table) {
         return new Table(table);
+    }
+
+    public static Partition toPartition(org.apache.hadoop.hive.metastore.api.Partition partition) {
+        return new Partition(partition);
     }
 }

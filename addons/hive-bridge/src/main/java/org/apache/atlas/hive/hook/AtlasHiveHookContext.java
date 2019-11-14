@@ -25,6 +25,7 @@ import org.apache.atlas.hive.hook.HiveHook.HiveHookObjectNamesCache;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.hadoop.hive.metastore.IHMSHandler;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.events.*;
 import org.apache.hadoop.hive.ql.hooks.*;
 import org.apache.hadoop.hive.ql.metadata.Hive;
@@ -208,6 +209,13 @@ public class AtlasHiveHookContext {
         }
 
         return (table.getDbName() + QNAME_SEP_ENTITY_NAME + tableName + QNAME_SEP_METADATA_NAMESPACE).toLowerCase() + getMetadataNamespace();
+    }
+
+    public String getQualifiedName(Partition partition) {
+        //db.table.partition.date=20190101,country=pl@datala
+        return (partition.getDbName() + QNAME_SEP_ENTITY_NAME + partition.getTableName() + QNAME_SEP_ENTITY_NAME + "partition" +
+                QNAME_SEP_ENTITY_NAME + String.join(",", partition.getValues() ) ).toLowerCase() + QNAME_SEP_METADATA_NAMESPACE + getMetadataNamespace();
+
     }
 
     public boolean isKnownDatabase(String dbQualifiedName) {
