@@ -153,6 +153,7 @@ public class AtlasHiveHookContext {
     }
 
     public AtlasEntity getEntity(String qualifiedName) {
+
         return qNameEntityMap.get(qualifiedName);
     }
 
@@ -197,6 +198,20 @@ public class AtlasHiveHookContext {
         return getDatabaseName(db) + QNAME_SEP_METADATA_NAMESPACE + getMetadataNamespace();
     }
 
+    public String getQualifiedName(org.apache.hadoop.hive.metastore.api.Table table) {
+        String tableName = table.getTableName();
+
+        if (table.isTemporary()) {
+            if (SessionState.get() != null && SessionState.get().getSessionId() != null) {
+                tableName = tableName + TEMP_TABLE_PREFIX + SessionState.get().getSessionId();
+            } else {
+                tableName = tableName + TEMP_TABLE_PREFIX + RandomStringUtils.random(10);
+            }
+        }
+
+        return (table.getDbName() + QNAME_SEP_ENTITY_NAME + tableName + QNAME_SEP_METADATA_NAMESPACE).toLowerCase() + getMetadataNamespace();
+    }
+
     public String getQualifiedName(Table table) {
         String tableName = table.getTableName();
 
@@ -212,8 +227,7 @@ public class AtlasHiveHookContext {
     }
 
     public String getQualifiedName(Partition partition) {
-        //db.table.partition.date=20190101,country=pl@datala
-        return (partition.getDbName() + QNAME_SEP_ENTITY_NAME + partition.getTableName() + QNAME_SEP_ENTITY_NAME + "partition" +
+        return (partition.getDbName() + QNAME_SEP_ENTITY_NAME + partition.getTableName() +
                 QNAME_SEP_ENTITY_NAME + String.join(",", partition.getValues() ) ).toLowerCase() + QNAME_SEP_METADATA_NAMESPACE + getMetadataNamespace();
 
     }

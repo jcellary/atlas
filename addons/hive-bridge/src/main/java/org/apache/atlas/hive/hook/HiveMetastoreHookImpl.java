@@ -174,9 +174,6 @@ public class HiveMetastoreHookImpl extends MetaStoreEventListener {
                         LOG.debug(String.format("Processed Atlas for adding partition: %s", event.toString()));
                         break;
 
-//                    case ALTERTABLE_DROPPARTS:
-//
-//                        break;
 
                     default:
                         if (LOG.isDebugEnabled()) {

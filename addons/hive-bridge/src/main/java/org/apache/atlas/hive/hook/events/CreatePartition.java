@@ -71,10 +71,6 @@ public class CreatePartition extends BaseHiveEvent {
             partition = toPartition(((AddPartitionEvent) event).getPartitionIterator().next()); //FIXME: Add support for mutliple partitions
             processPartition(partition, ret);
         }
-//        else {
-//            partition = toTable(((CreateTableEvent) event));
-//        }
-
 
         addProcessedEntities(ret);
 
@@ -99,7 +95,6 @@ public class CreatePartition extends BaseHiveEvent {
             }
         }
 
-//        processTable(partition, ret);
 
         addProcessedEntities(ret);
 
@@ -107,111 +102,24 @@ public class CreatePartition extends BaseHiveEvent {
     }
 
     private void processPartition(Partition partition, AtlasEntitiesWithExtInfo ret) throws Exception {
-        LOG.debug(String.format("Processing %s", partition.getValues()));
+        LOG.debug(String.format("processPartition:Processing %s", partition.getValues()));
         if(partition != null){
+            LOG.debug(String.format("processPartition: Processing %s", partition.getValues()));
             AtlasEntity partEntity = toPartitionEntity(partition, ret);
             if(partEntity != null) {
                 AtlasEntity partDDLEntity = createHiveDDLEntity(partEntity);
                 if (partDDLEntity != null) {
-                    ret.addEntity(partDDLEntity);
+                    ret.addEntity(partEntity);
                 }
-//                if (context.isMetastoreHook()) {
-//
-//                }
-//                if (!context.isMetastoreHook()) {
-//                    AtlasEntity partDDLEntity = createHiveDDLEntity(partEntity);
-//                    if (partDDLEntity != null) {
-//                        ret.addEntity(partDDLEntity);
-//                    }
-//                }
 
             }
         }
     }
-    // create process entities for lineages from HBase/HDFS to hive table
-//    private void processTable(Table table, AtlasEntitiesWithExtInfo ret) throws Exception {
-//        if (table != null) {
-//            AtlasEntity tblEntity = toTableEntity(table, ret);
-//
-//            if (tblEntity != null) {
-//                if (isHBaseStore(table)) {
-//                    if (context.isMetastoreHook()) {
-//                        //do nothing
-//                    } else {
-//                        // This create lineage to HBase table in case of Hive on HBase
-//                        AtlasEntity hbaseTableEntity = toReferencedHBaseTable(table, ret);
-//
-//                        //not a hive metastore hook
-//                        //it is running in the context of Hbase.
-//                        if (hbaseTableEntity != null) {
-//                            final AtlasEntity processEntity;
-//
-//                            if (EXTERNAL_TABLE.equals(table.getTableType())) {
-//                                processEntity = getHiveProcessEntity(Collections.singletonList(hbaseTableEntity), Collections.singletonList(tblEntity));
-//                            } else {
-//                                processEntity = getHiveProcessEntity(Collections.singletonList(tblEntity), Collections.singletonList(hbaseTableEntity));
-//                            }
-//                            ret.addEntity(processEntity);
-//
-//                            AtlasEntity processExecution = getHiveProcessExecutionEntity(processEntity);
-//                            ret.addEntity(processExecution);
-//                        }
-//                    }
-//
-//                } else {
-//                    if (context.isMetastoreHook()) {
-//                        //it is running in the context of HiveMetastore
-//                        //not a hive metastore hook
-//                        if (isCreateExtTableOperation(table)) {
-//                            if (LOG.isDebugEnabled()) {
-//                                LOG.debug("Creating a dummy process with lineage from hdfs path to hive table");
-//                            }
-//                            AtlasEntity hdfsPathEntity = getPathEntity(table.getDataLocation(), ret);
-//                            AtlasEntity processEntity  = getHiveProcessEntity(Collections.singletonList(hdfsPathEntity), Collections.singletonList(tblEntity));
-//
-//                            ret.addEntity(processEntity);
-//                            ret.addReferredEntity(hdfsPathEntity);
-//                        }
-//                    } else {
-//                        //not a hive metastore hook
-//                        //it is running in the context of HiveServer2
-//                        if (EXTERNAL_TABLE.equals(table.getTableType())) {
-//                            AtlasEntity hdfsPathEntity = getPathEntity(table.getDataLocation(), ret);
-//                            AtlasEntity processEntity  = getHiveProcessEntity(Collections.singletonList(hdfsPathEntity), Collections.singletonList(tblEntity));
-//
-//                            ret.addEntity(processEntity);
-//                            ret.addReferredEntity(hdfsPathEntity);
-//
-//                            AtlasEntity processExecution = getHiveProcessExecutionEntity(processEntity);
-//                            ret.addEntity(processExecution);
-//                        }
-//                    }
-//                }
-//
-//                if (!context.isMetastoreHook()) {
-//                    AtlasEntity tableDDLEntity = createHiveDDLEntity(tblEntity);
-//
-//                    if (tableDDLEntity != null) {
-//                        ret.addEntity(tableDDLEntity);
-//                    }
-//                }
-//            }
-//        }
-//    }
+
 
     private static boolean isCreatePartition(HiveOperation oper) {
         return (oper == ALTERTABLE_ADDPARTS);
     }
 
-//    private boolean skipTemporaryTable(Table table) {
-//        // If its an external table, even though the temp table skip flag is on, we create the table since we need the HDFS path to temp table lineage.
-//        return table != null && skipTempTables && table.isTemporary() && !EXTERNAL_TABLE.equals(table.getTableType());
-//    }
 
-//    private boolean isCreateExtTableOperation(Table table) {
-//        HiveOperation oper      = context.getHiveOperation();
-//        TableType     tableType = table.getTableType();
-//
-//        return EXTERNAL_TABLE.equals(tableType) && (oper == CREATETABLE || oper == CREATETABLE_AS_SELECT);
-//    }
 }

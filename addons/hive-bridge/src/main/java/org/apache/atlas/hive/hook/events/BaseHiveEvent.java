@@ -370,17 +370,53 @@ public abstract class BaseHiveEvent {
     }
 
 
-    protected AtlasEntity toPartitionEntity(Partition partition, AtlasEntityExtInfo entityExtInfo) throws Exception {
-        String partQualifiedName = getQualifiedName(partition);
 
+
+    protected AtlasEntity toPartitionEntity(Partition partition, AtlasEntityExtInfo entityExtInfo) throws Exception {
+
+        String partQualifiedName = getQualifiedName(partition);
+        LOG.debug(String.format("toPartitionEntity: for %s",partQualifiedName));
+        org.apache.hadoop.hive.metastore.api.Table table = getTable(partition.getDbName(),partition.getTableName());
+        String    tableQualifiedName = getQualifiedName(table);
+        LOG.debug(String.format("toPartitionEntity: obtained  tableQualifiedName%s",tableQualifiedName));
+
+        AtlasEntity tableEntity ;
+        if(context.getEntity(tableQualifiedName)== null){
+            LOG.error(String.format("Table with FQN: %s does not exist in cache", tableQualifiedName));
+            LOG.error("|", context.getEntities());
+            LOG.info("Creating a table entity");
+            boolean     isKnownTable = context.isKnownTable(tableQualifiedName);
+            tableEntity = new AtlasEntity(HIVE_TYPE_TABLE);
+
+                // if this DB was sent in an earlier notification, set 'guid' to null - which will:
+                //  - result in this entity to be not included in 'referredEntities'
+                //  - cause Atlas server to resolve the entity by its qualifiedName
+                if (isKnownTable) {
+                    tableEntity.setGuid(null);
+                }
+
+                tableEntity.setAttribute(ATTRIBUTE_QUALIFIED_NAME, tableQualifiedName);
+                tableEntity.setAttribute(ATTRIBUTE_NAME, partition.getTableName());
+                tableEntity.setAttribute(ATTRIBUTE_OWNER, table.getOwner());
+
+                tableEntity.setAttribute(ATTRIBUTE_CLUSTER_NAME, getMetadataNamespace());
+                tableEntity.setAttribute(ATTRIBUTE_PARAMETERS, table.getParameters());
+                context.putEntity(tableQualifiedName, tableEntity);
+        }
+        tableEntity = context.getEntity(tableQualifiedName);
         AtlasEntity ret = context.getEntity(partQualifiedName);
         if (ret == null) {
-
             ret = new AtlasEntity(HIVE_TYPE_PARTITION);
             ret.setAttribute(ATTRIBUTE_QUALIFIED_NAME, partQualifiedName);
             ret.setAttribute(ATTRIBUTE_NAME, String.join(",",  partition.getValues() ) );
+            ret.setRelationshipAttribute(ATTRIBUTE_DB, partition.getDbName() );
+            ret.setAttribute(ATTRIBUTE_CREATE_TIME, partition.getCreateTime());
+            ret.setAttribute(ATTRIBUTE_LAST_ACCESS_TIME, partition.getLastAccessTime());
+            ret.setAttribute(ATTRIBUTE_PARAMETERS, partition.getParameters());
+            ret.setAttribute(ATTRIBUTE_COMMENT, partition.getParameters().get(ATTRIBUTE_COMMENT));
+            AtlasRelatedObjectId dbRelatedObject =     new AtlasRelatedObjectId(AtlasTypeUtil.getObjectId(tableEntity), RELATIONSHIP_HIVE_TABLE_DB);
+            ret.setRelationshipAttribute(ATTRIBUTE_TABLE, dbRelatedObject );
             context.putEntity(partQualifiedName, ret);
-
         }
         return ret;
     }
@@ -760,6 +796,11 @@ public abstract class BaseHiveEvent {
                                            context.getHive().getDatabase(dbName);
     }
 
+    protected org.apache.hadoop.hive.metastore.api.Table getTable(String dbName, String tableName) throws Exception {
+        return context.isMetastoreHook() ? context.getMetastoreHandler().get_table(dbName, tableName) :
+                context.getHive().getTable(dbName, tableName).getTTable();
+    }
+
     protected Hive getHive() {
         return context.getHive();
     }
@@ -845,6 +886,7 @@ public abstract class BaseHiveEvent {
                 return getQualifiedName(entity.getDatabase());
 
             case TABLE:
+                return getQualifiedName(entity);
             case PARTITION:
                 return getQualifiedName(entity.getPartition().getTPartition());
 
@@ -861,6 +903,10 @@ public abstract class BaseHiveEvent {
     }
 
     protected String getQualifiedName(Table table) {
+        return context.getQualifiedName(table);
+    }
+
+    protected String getQualifiedName(org.apache.hadoop.hive.metastore.api.Table table) {
         return context.getQualifiedName(table);
     }
 
