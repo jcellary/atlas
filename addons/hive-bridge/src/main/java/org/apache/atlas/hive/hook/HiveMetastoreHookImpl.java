@@ -104,10 +104,10 @@ public class HiveMetastoreHookImpl extends MetaStoreEventListener {
 
     @Override
     public void onAddPartition (AddPartitionEvent partitionEvent)  {
-        LOG.debug(String.format("==> Started Processing event for table %s", partitionEvent.getPartitionIterator().next().getTableName()));
+        LOG.debug("Started Processing AddPartitionEvent");
         HiveOperationContext context = new HiveOperationContext(ALTERTABLE_ADDPARTS, partitionEvent);
         hook.handleEvent(context);
-        LOG.debug(String.format("==> Finished Processing event %s", partitionEvent.getPartitionIterator().next().getValues()));
+        LOG.debug("==> Finished Processing AddPartitionEvent");
     }
 
     @Override
