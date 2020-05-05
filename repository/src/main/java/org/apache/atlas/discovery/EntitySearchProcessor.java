@@ -17,6 +17,7 @@
  */
 package org.apache.atlas.discovery;
 
+import com.google.common.collect.Lists;
 import org.apache.atlas.SortOrder;
 import org.apache.atlas.model.discovery.SearchParameters.FilterCriteria;
 import org.apache.atlas.repository.Constants;
@@ -200,7 +201,7 @@ public class EntitySearchProcessor extends SearchProcessor {
 
             if (sortBy != null && !sortBy.isEmpty()) {
                 AtlasGraphQuery.SortOrder qrySortOrder = sortOrder == SortOrder.ASCENDING ? ASC : DESC;
-                graphQuery.orderBy(sortBy, qrySortOrder);
+                graphQuery.orderBy(context.getEntityType().getTypeName() + "." + sortBy, qrySortOrder);
             }
 
 
@@ -340,6 +341,12 @@ public class EntitySearchProcessor extends SearchProcessor {
 
     @Override
     public long getResultCount() {
-        return (indexQuery != null) ? indexQuery.vertexTotals() : -1;
+        if (indexQuery != null) {
+            return indexQuery.vertexTotals();
+        } else if (graphQuery != null) {
+            return Lists.newArrayList(graphQuery.vertexIds().iterator()).size();
+        } else {
+            return -1l;
+        }
     }
 }
