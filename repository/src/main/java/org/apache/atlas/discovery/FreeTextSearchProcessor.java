@@ -17,6 +17,8 @@
  */
 package org.apache.atlas.discovery;
 
+import org.apache.atlas.ApplicationProperties;
+import org.apache.atlas.AtlasException;
 import org.apache.atlas.model.discovery.SearchParameters;
 import org.apache.atlas.model.instance.AtlasEntity;
 import org.apache.atlas.repository.Constants;
@@ -44,6 +46,7 @@ public class FreeTextSearchProcessor extends SearchProcessor {
     public  static final String SOLR_REQUEST_HANDLER_NAME   = "/freetext";
 
     private final AtlasIndexQuery indexQuery;
+    private boolean isSolr;
 
     public FreeTextSearchProcessor(SearchContext context) {
         super(context);
@@ -67,12 +70,20 @@ public class FreeTextSearchProcessor extends SearchProcessor {
         LOG.debug("Using query string  '{}'.", queryString);
 
         indexQuery = context.getGraph().indexQuery(prepareGraphIndexQueryParameters(context, queryString));
+        try {
+            isSolr = ApplicationProperties.INDEX_BACKEND_SOLR.equalsIgnoreCase(ApplicationProperties.get().getString(ApplicationProperties.INDEX_BACKEND_CONF));
+        } catch (AtlasException e) {
+            LOG.error("Cannot get application property " + ApplicationProperties.INDEX_BACKEND_SOLR, e);
+            isSolr = true; //default to solr
+        }
     }
 
     private GraphIndexQueryParameters prepareGraphIndexQueryParameters(SearchContext context, StringBuilder queryString) {
         List<AtlasIndexQueryParameter> parameters = new ArrayList<>();
 
-        parameters.add(context.getGraph().indexQueryParameter(SOLR_QT_PARAMETER, SOLR_REQUEST_HANDLER_NAME));
+        if (isSolr) {
+            parameters.add(context.getGraph().indexQueryParameter(SOLR_QT_PARAMETER, SOLR_REQUEST_HANDLER_NAME));
+        }
 
         return new GraphIndexQueryParameters(Constants.VERTEX_INDEX, queryString.toString(), 0, parameters);
     }
